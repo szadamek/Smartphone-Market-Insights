@@ -34,7 +34,6 @@ if __name__ == '__main__':
         with open(phones_file, 'r', encoding='utf-8') as f:
             for line in f:
                 phones.append(line.strip())
-        print(phones)
     else:
         print('File not found. Creating new file.')
         open(phones_file, 'w', encoding='utf-8').close()
@@ -74,7 +73,7 @@ if __name__ == '__main__':
         page_num += 1
 
         # Generate random sleep time between requests (1-3 seconds)
-        sleep_time = random.uniform(5, 10)
+        sleep_time = random.uniform(3, 8)
         time.sleep(sleep_time)
 
     print(f'Total {total_new_phones} new phones added')
