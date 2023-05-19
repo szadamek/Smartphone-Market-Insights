@@ -39,7 +39,14 @@ if __name__ == '__main__':
         with open('test_parameters.html', 'w', encoding='utf-8') as f:
             f.write(str(soup))
 
-        phone_selector = 'body > div.main-wrapper > div:nth-child(7) > div > div > div:nth-child(7) > div > div > div:nth-child(2)'
-        print(soup.select(phone_selector))
+        params_selector = 'body > div.main-wrapper > div > div > div > div:nth-child(7) > div > div > div:nth-child(4) > div > div > div.mpof_ki.msub_k4.myre_zn.mp7g_oh._9491e_bNo44.mr3m_1.mjyo_6x.gel0f.g69b4.g1wnk.g1s2l.mh36_0.mvrt_0.mvrt_8_m > div > div:nth-child(3) > div > div > div:nth-child(1) > div > div > div > div > div > div > div > div > div > div > table > tbody > tr'
+        params_tr = soup.select(params_selector)
+        params = {}
+        for param in params_tr:
+            key = param.select_one('td:nth-child(1)').text.strip()
+            value = param.select_one('td:nth-child(2)').text.strip()
+            params[key] = value
 
-        time.sleep(10)
+        print(params)
+
+        time.sleep(5)
