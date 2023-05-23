@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
 import requests
+import json
 
 
 def get_html_page(url):
@@ -28,35 +29,85 @@ def handle_response(response):
 
 
 def send_request(url):
-    # url = 'https://allegro.pl/oferta/smartfon-realme-8-4-64gb-amoled-nfc-czarny-13240065180'
-    headers = {
-        'accept': 'application/vnd.opbox-web.subtree+json',
-        'accept-language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
-        'dpr': '1',
-        'sec-ch-device-memory': '8',
-        'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
-        'sec-ch-ua-arch': '"x86"',
-        'sec-ch-ua-full-version-list': '"Chromium";v="112.0.5615.138", "Google Chrome";v="112.0.5615.138", "Not:A-Brand";v="99.0.0.0"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-model': '""',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
-        'viewport-width': '1017',
-        'x-box-id': 'LUo64bt1RQOuwIphdVaomw==sx2lrxHNQUG4Wa7QQbUK8g==4iJ4NQTRQsGK0YC-eOOwlg==',
-        'x-view-id': '883a645a-5832-49ac-8824-93e78d55c745'
+    # Run hello world in JS and return result
+    result = driver.execute_async_script("""
+    function makeRequest(url, headers, callback) {
+      const xhr = new XMLHttpRequest();
+
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+          if (xhr.status === 200) {
+            const response = xhr.responseText;
+            callback(response);
+          } else {
+            console.error('Error making the request. Status:', xhr.status);
+            callback(null);
+          }
+        }
+      };
+
+      xhr.open('GET', url, true);
+
+      for (const header in headers) {
+        xhr.setRequestHeader(header, headers[header]);
+      }
+
+      xhr.send();
     }
 
-    response = requests.get(url, headers=headers)
-    handle_response(response)
-    return response.json()
+    function handleResponse(response) {
+        if (response) {
+        console.log(response);
+        // Process the response content as needed
+        } else {
+        console.error('Failed to get response');
+        }
+    }
+
+    function sendRequest() {
+        return new Promise(function(resolve, reject) {
+            const url = '""" + url + """';
+            const headers = {
+            'accept': 'application/vnd.opbox-web.subtree+json',
+            'accept-language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
+            'dpr': '1',
+            'sec-ch-device-memory': '8',
+            'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
+            'sec-ch-ua-arch': '"x86"',
+            'sec-ch-ua-full-version-list': '"Chromium";v="112.0.5615.138", "Google Chrome";v="112.0.5615.138", "Not:A-Brand";v="99.0.0.0"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-model': '""',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+            'viewport-width': '1017',
+            'x-box-id': 'LUo64bt1RQOuwIphdVaomw==sx2lrxHNQUG4Wa7QQbUK8g==4iJ4NQTRQsGK0YC-eOOwlg==',
+            'x-view-id': '883a645a-5832-49ac-8824-93e78d55c745'
+            };
+
+            makeRequest(url, headers, function(resp) {
+                console.log(resp);
+                resolve(resp);
+            });
+        });
+    }
+
+
+        var callback = arguments[arguments.length - 1];  // Last argument is the callback function
+
+        sendRequest().then(function (value) {
+            callback(value);  // Pass the result to the callback
+        });
+    """)
+
+    return json.loads(result)
 
 
 if __name__ == '__main__':
     # Set up Chrome driver
-    chrome_driver_path = 'C:/TestFiles/chromedriver.exe'
+    chrome_driver_path = 'C:/Users/Daniel/Desktop/chromedriver.exe'
     service = Service(chrome_driver_path)
     driver = webdriver.Chrome(service=service)
 
@@ -92,7 +143,7 @@ if __name__ == '__main__':
             f.write(str(view_box_soup))
 
         view_box_html_selector = 'body > div > div > table > tbody > tr'
-        params_tr = view_box_soup.select(params_selector)
+        params_tr = view_box_soup.select(view_box_html_selector)
         for param in params_tr:
             key = param.select_one('td:nth-child(1)').text.strip()
             value = param.select_one('td:nth-child(2)').text.strip()
