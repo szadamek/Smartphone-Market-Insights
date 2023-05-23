@@ -2,7 +2,6 @@ import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
-import subprocess
 import requests
 
 
@@ -23,8 +22,13 @@ def handle_response(response):
         print(response.json())  # Przetwarzaj odpowiedź tak, jak jest to wymagane
     else:
         print('Failed to get response')
+        print(response.status_code)
+
+    return response
+
 
 def send_request(url):
+    # url = 'https://allegro.pl/oferta/smartfon-realme-8-4-64gb-amoled-nfc-czarny-13240065180'
     headers = {
         'accept': 'application/vnd.opbox-web.subtree+json',
         'accept-language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -47,6 +51,7 @@ def send_request(url):
 
     response = requests.get(url, headers=headers)
     handle_response(response)
+    return response.json()
 
 
 if __name__ == '__main__':
@@ -77,12 +82,22 @@ if __name__ == '__main__':
             key = param.select_one('td:nth-child(1)').text.strip()
             value = param.select_one('td:nth-child(2)').text.strip()
             params[key] = value
-        phone_parameters.append(params)
 
-        send_request(base_url)
+        view_box_json = send_request(base_url)
+
+        view_box_html = view_box_json['htmlString']
+        view_box_soup = BeautifulSoup(view_box_html, 'html.parser')
+        # For debugging and testing selectors in Chrome
+        with open('test_view_box.html', 'w', encoding='utf-8') as f:
+            f.write(str(view_box_soup))
+
+        view_box_html_selector = 'body > div > div > table > tbody > tr'
+        params_tr = view_box_soup.select(params_selector)
+        for param in params_tr:
+            key = param.select_one('td:nth-child(1)').text.strip()
+            value = param.select_one('td:nth-child(2)').text.strip()
+            params[key] = value
 
         print(params)
 
-
-
-        time.sleep(5)
+        time.sleep(7)
