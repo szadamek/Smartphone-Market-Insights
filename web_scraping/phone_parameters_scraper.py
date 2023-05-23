@@ -1,9 +1,9 @@
-import os
-import random
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
+import subprocess
+import requests
 
 
 def get_html_page(url):
@@ -16,6 +16,37 @@ def get_html_by_viewsource(url):
     html = get_html_page('view-source:' + url)
     soup = BeautifulSoup(html, features='html.parser')
     return soup.text
+
+
+def handle_response(response):
+    if response:
+        print(response.json())  # Przetwarzaj odpowiedź tak, jak jest to wymagane
+    else:
+        print('Failed to get response')
+
+def send_request(url):
+    headers = {
+        'accept': 'application/vnd.opbox-web.subtree+json',
+        'accept-language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
+        'dpr': '1',
+        'sec-ch-device-memory': '8',
+        'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
+        'sec-ch-ua-arch': '"x86"',
+        'sec-ch-ua-full-version-list': '"Chromium";v="112.0.5615.138", "Google Chrome";v="112.0.5615.138", "Not:A-Brand";v="99.0.0.0"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-model': '""',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+        'viewport-width': '1017',
+        'x-box-id': 'LUo64bt1RQOuwIphdVaomw==sx2lrxHNQUG4Wa7QQbUK8g==4iJ4NQTRQsGK0YC-eOOwlg==',
+        'x-view-id': '883a645a-5832-49ac-8824-93e78d55c745'
+    }
+
+    response = requests.get(url, headers=headers)
+    handle_response(response)
 
 
 if __name__ == '__main__':
@@ -46,7 +77,12 @@ if __name__ == '__main__':
             key = param.select_one('td:nth-child(1)').text.strip()
             value = param.select_one('td:nth-child(2)').text.strip()
             params[key] = value
+        phone_parameters.append(params)
+
+        send_request(base_url)
 
         print(params)
+
+
 
         time.sleep(5)
