@@ -2,7 +2,7 @@ import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
-import requests
+import csv
 import json
 
 
@@ -107,7 +107,7 @@ def send_request(url):
 
 if __name__ == '__main__':
     # Set up Chrome driver
-    chrome_driver_path = 'C:/Users/Daniel/Desktop/chromedriver.exe'
+    chrome_driver_path = 'C:/TestFiles/chromedriver.exe'
     service = Service(chrome_driver_path)
     driver = webdriver.Chrome(service=service)
 
@@ -117,6 +117,8 @@ if __name__ == '__main__':
     phones = [phone.strip() for phone in phones]
 
     phone_parameters = []
+    all_headers = set()
+
     for phone in phones:
         base_url = phone
         print(f'Phone: {base_url}')
@@ -133,6 +135,7 @@ if __name__ == '__main__':
             key = param.select_one('td:nth-child(1)').text.strip()
             value = param.select_one('td:nth-child(2)').text.strip()
             params[key] = value
+            all_headers.add(key)
 
         view_box_json = send_request(base_url)
 
@@ -142,13 +145,23 @@ if __name__ == '__main__':
         with open('test_view_box.html', 'w', encoding='utf-8') as f:
             f.write(str(view_box_soup))
 
-        view_box_html_selector = 'body > div > div > table > tbody > tr'
+        view_box_html_selector = 'tr.mlkp_ag'
         params_tr = view_box_soup.select(view_box_html_selector)
         for param in params_tr:
             key = param.select_one('td:nth-child(1)').text.strip()
             value = param.select_one('td:nth-child(2)').text.strip()
             params[key] = value
+            all_headers.add(key)
 
         print(params)
+        params['url'] = base_url
+        phone_parameters.append(params)
 
         time.sleep(7)
+
+        headers = ['url'] + list(all_headers)
+
+        with open('phone_parameters_scraped.csv', "w", newline="", encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=headers, delimiter=';')
+            writer.writeheader()
+            writer.writerows(phone_parameters)
