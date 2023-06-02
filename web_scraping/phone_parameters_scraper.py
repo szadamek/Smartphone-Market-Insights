@@ -2,8 +2,8 @@ import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
-import csv
 import json
+import os
 
 
 def get_html_page(url):
@@ -95,11 +95,11 @@ def send_request(url):
     }
 
 
-        var callback = arguments[arguments.length - 1];  // Last argument is the callback function
+    var callback = arguments[arguments.length - 1];  // Last argument is the callback function
 
-        sendRequest().then(function (value) {
-            callback(value);  // Pass the result to the callback
-        });
+    sendRequest().then(function (value) {
+        callback(value);  // Pass the result to the callback
+    });
     """)
 
     return json.loads(result)
@@ -111,13 +111,10 @@ if __name__ == '__main__':
     service = Service(chrome_driver_path)
     driver = webdriver.Chrome(service=service)
 
-    with open('phones_links.txt', 'r', encoding='utf-8') as f:
+    with open('phones.txt', 'r', encoding='utf-8') as f:
         phones = f.readlines()
 
     phones = [phone.strip() for phone in phones]
-
-    phone_parameters = []
-    all_headers = set()
 
     for phone in phones:
         base_url = phone
@@ -135,7 +132,6 @@ if __name__ == '__main__':
             key = param.select_one('td:nth-child(1)').text.strip()
             value = param.select_one('td:nth-child(2)').text.strip()
             params[key] = value
-            all_headers.add(key)
 
         view_box_json = send_request(base_url)
 
@@ -151,17 +147,31 @@ if __name__ == '__main__':
             key = param.select_one('td:nth-child(1)').text.strip()
             value = param.select_one('td:nth-child(2)').text.strip()
             params[key] = value
-            all_headers.add(key)
 
         print(params)
         params['url'] = base_url
-        phone_parameters.append(params)
 
-        time.sleep(7)
+        # Save data to JSON file, appending new data
+        # jezeli plik jest pusty
+        if os.stat('phones_data.json').st_size == 0:
+            with open('phones_data.json', 'a', encoding='utf-8') as f:
+                json.dump([params], f, ensure_ascii=False)
+        else:
+            with open('phones_data.json', 'r+', encoding='utf-8') as f:
+                # Load data from JSON file
+                data = json.load(f)
+                # Append new data to JSON file
+                data.append(params)
+                # Go to the beginning of the file
+                f.seek(0)
+                # Write data to the file
+                json.dump(data, f, ensure_ascii=False)
+                # przejdź o linię niżej dla czytelności
 
-        headers = ['url'] + list(all_headers)
+        # usuń link z pliku phones.txt poprzez usunięcie linii znajdującej się najwyżej
+        with open('phones.txt', 'r', encoding='utf-8') as fin:
+            data = fin.read().splitlines(True)
+        with open('phones.txt', 'w', encoding='utf-8') as fout:
+            fout.writelines(data[1:])
 
-        with open('phone_parameters_scraped.csv', "w", newline="", encoding='utf-8') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=headers, delimiter=';')
-            writer.writeheader()
-            writer.writerows(phone_parameters)
+        time.sleep(5)
