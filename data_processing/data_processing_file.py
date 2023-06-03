@@ -1,15 +1,12 @@
-import csv
+import json
 
-input_file = '../web_scraping/dane.csv'
+# Otwórz plik phones.data.json
+with open('../web_scraping/phones_data.json', 'r', encoding='utf-8') as file:
+    data = json.load(file)
 
-# Otwórz plik CSV do odczytu
-with open(input_file, 'r', encoding='utf-8') as f:
-    reader = csv.DictReader(f)
-    headers = reader.fieldnames  # Pobierz nagłówki z pliku CSV
+# Wyświetl parametry telefonów
+for phone_data in data:
+    print(phone_data)
 
-    # Przeiteruj przez każdy wiersz pliku
-    for row in reader:
-        # Wyświetl wartości dla każdego nagłówka
-        for header in headers:
-            print(f"{header}: {row[header]}")
-        print("--------------------")
+# Możesz teraz wykorzystać odczytane parametry telefonów do dalszej obróbki
+# np. przetwarzania, analizy itp.

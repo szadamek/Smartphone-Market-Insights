@@ -166,7 +166,6 @@ if __name__ == '__main__':
                 f.seek(0)
                 # Write data to the file
                 json.dump(data, f, ensure_ascii=False)
-                # przejdź o linię niżej dla czytelności
 
         # usuń link z pliku phones.txt poprzez usunięcie linii znajdującej się najwyżej
         with open('phones.txt', 'r', encoding='utf-8') as fin:
@@ -174,4 +173,4 @@ if __name__ == '__main__':
         with open('phones.txt', 'w', encoding='utf-8') as fout:
             fout.writelines(data[1:])
 
-        time.sleep(5)
+        time.sleep(3)

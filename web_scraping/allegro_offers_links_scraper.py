@@ -39,7 +39,7 @@ if __name__ == '__main__':
         open(phones_file, 'w', encoding='utf-8').close()
 
     total_new_phones = 0
-    page_num = 16
+    page_num = 50
     while True:
         url = f'{base_url}?p={page_num}'
         print(f'Strona {page_num}: {url}')
