@@ -133,6 +133,11 @@ if __name__ == '__main__':
             value = param.select_one('td:nth-child(2)').text.strip()
             params[key] = value
 
+        params_price_selector = 'body > div.main-wrapper > div:nth-child(7) > div > div > div:nth-child(7) > div > div > div > div > div > div.mpof_ki.msub_k4.myre_zn.mp7g_oh._9491e_bNo44.mr3m_1.mjyo_6x.gel0f.ggz4y.g1gsr.g1s2l.mh36_0.mh36_8_m.mg9e_16.mg9e_0_m > div > div:nth-child(1) > div > div > div:nth-child(2) > div > div > div > div > div > div.msts_pt > div > div > div > span:nth-child(1)'
+        params_price = soup.select_one(params_price_selector).text.strip()
+        params['Cena'] = params_price
+        print(params)
+
         view_box_json = send_request(base_url)
 
         view_box_html = view_box_json['htmlString']

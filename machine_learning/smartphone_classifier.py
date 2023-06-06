@@ -2,6 +2,11 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 import json
+from skopt import BayesSearchCV
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
 # Wczytanie danych z pliku
 with open('../web_scraping/phones_data.json', 'r', encoding='utf-8') as file:
@@ -25,10 +30,8 @@ X = []
 y = []
 # weź tylko te telefony które mają wszystkie parametry kompletne włącznie z marką telefonu
 for phone in data:
-    if all([phone[param] is not None for param in
-            ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']]):
-        X.append([phone[param] for param in
-                  ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']])
+    if all([phone[param] is not None for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']]):
+        X.append([phone[param] for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']])
         y.append(phone['Marka telefonu'])
 
 # Zakodowanie etykiet kategorii
@@ -38,19 +41,26 @@ y = label_encoder.fit_transform(y)
 # Podział danych na zbiór treningowy i testowy
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# normalizacja danych z bibliteki sklearn
-from sklearn.preprocessing import StandardScaler
+# Definicja modelu KNN
+knn = KNeighborsClassifier()
 
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+# Definicja przestrzeni poszukiwania
+param_space = {
+    'n_neighbors': (1, 10)  # zakres możliwych wartości liczby sąsiadów
+}
 
-# Inicjalizacja i trenowanie klasyfikatora k najbliższych sąsiadów
-knn = KNeighborsClassifier(n_neighbors=3)
-knn.fit(X_train, y_train)
+# Inicjalizacja optymalizacji bayesowskiej
+opt = BayesSearchCV(knn, param_space, n_iter=50, cv=5)
 
-# Predykcja dla danych testowych
-y_pred = knn.predict(X_test)
+# Dopasowanie modelu do danych treningowych
+opt.fit(X_train, y_train)
+
+# Najlepsze znalezione parametry
+best_params = opt.best_params_
+print("Najlepsze parametry:", best_params)
+
+# Predykcja dla danych testowych z wykorzystaniem najlepszych parametrów
+y_pred = opt.predict(X_test)
 
 # Dekodowanie etykiet kategorii
 y_pred = label_encoder.inverse_transform(y_pred)
@@ -63,5 +73,24 @@ for i in range(len(X_test)):
     print()
 
 # Ocena dokładności modelu
-accuracy = knn.score(X_test, y_test)
+accuracy = opt.score(X_test, y_test)
 print('Dokładność modelu:', accuracy)
+
+# stwórz macierz pomyłek
+cm = confusion_matrix(y_test, opt.predict(X_test))
+
+# wyświetl macierz pomyłek w konsoli
+print(cm)
+
+#zsumuj wszystkie wartości w macierzy pomyłek
+sum = np.sum(cm)
+print(sum)
+
+# wyświetl macierz pomyłek w postaci graficznej
+plt.figure(figsize=(12, 12))
+sns.heatmap(cm, annot=True, fmt=".0f", linewidths=.5, square=True, cmap='Blues_r')
+plt.ylabel('Actual label')
+plt.xlabel('Predicted label')
+all_sample_title = 'Accuracy Score: {0}'.format(accuracy)
+plt.title(all_sample_title, size=15)
+plt.show()
