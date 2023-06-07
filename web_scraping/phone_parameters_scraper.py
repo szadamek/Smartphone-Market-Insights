@@ -4,6 +4,7 @@ from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
 import json
 import os
+from data_processing.data_processing_file import remove_comma_from_price
 
 
 def get_html_page(url):
@@ -121,6 +122,7 @@ if __name__ == '__main__':
         print(f'Phone: {base_url}')
         html = get_html_by_viewsource(base_url)
         soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(str(soup), 'html.parser')
         # For debugging and testing selectors in Chrome
         with open('test_parameters.html', 'w', encoding='utf-8') as f:
             f.write(str(soup))
@@ -135,8 +137,8 @@ if __name__ == '__main__':
 
         params_price_selector = 'body > div.main-wrapper > div:nth-child(7) > div > div > div:nth-child(7) > div > div > div > div > div > div.mpof_ki.msub_k4.myre_zn.mp7g_oh._9491e_bNo44.mr3m_1.mjyo_6x.gel0f.ggz4y.g1gsr.g1s2l.mh36_0.mh36_8_m.mg9e_16.mg9e_0_m > div > div:nth-child(1) > div > div > div:nth-child(2) > div > div > div > div > div > div.msts_pt > div > div > div > span:nth-child(1)'
         params_price = soup.select_one(params_price_selector).text.strip()
+        params_price = remove_comma_from_price(params_price)
         params['Cena'] = params_price
-        print(params)
 
         view_box_json = send_request(base_url)
 
@@ -158,11 +160,11 @@ if __name__ == '__main__':
 
         # Save data to JSON file, appending new data
         # jezeli plik jest pusty
-        if os.stat('phones_data.json').st_size == 0:
-            with open('phones_data.json', 'a', encoding='utf-8') as f:
+        if os.stat('phones_data_new.json').st_size == 0:
+            with open('phones_data_new.json', 'a', encoding='utf-8') as f:
                 json.dump([params], f, ensure_ascii=False)
         else:
-            with open('phones_data.json', 'r+', encoding='utf-8') as f:
+            with open('phones_data_new.json', 'r+', encoding='utf-8') as f:
                 # Load data from JSON file
                 data = json.load(f)
                 # Append new data to JSON file

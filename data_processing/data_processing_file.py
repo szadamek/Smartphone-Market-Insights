@@ -21,3 +21,6 @@ def remove_units(data, params):
 def remove_phones_without_param(data, param):
     data = [phone for phone in data if param in phone]
     return data
+
+def remove_comma_from_price(price):
+    return price.replace(',', '')
