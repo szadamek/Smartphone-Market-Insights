@@ -180,4 +180,4 @@ if __name__ == '__main__':
         with open('phones.txt', 'w', encoding='utf-8') as fout:
             fout.writelines(data[1:])
 
-        time.sleep(3)
+        time.sleep(4)

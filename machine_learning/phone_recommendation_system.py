@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from data_processing.data_processing_file import remove_units, remove_phones_without_param
 
 # Wczytaj dane z pliku JSON
-with open('../web_scraping/phones_data.json', 'r', encoding='utf-8') as file:
+with open('../web_scraping/phones_data_connected.json', 'r', encoding='utf-8') as file:
     data = json.load(file)
 
 # Usuń telefony, które nie mają podanych parametrów
@@ -23,6 +23,7 @@ data = remove_phones_without_param(data, 'Model telefonu')
 data = remove_phones_without_param(data, 'Częstotliwość procesora')
 data = remove_phones_without_param(data, 'Rozdzielczość aparatu przedniego')
 data = remove_phones_without_param(data, 'Gęstość pikseli')
+data = remove_phones_without_param(data, 'Cena')
 print(f"Liczba telefonów po usunięciu tych bez podanych parametrów: {len(data)}")
 
 # Usuń jednostki z parametrów liczbowych
@@ -46,7 +47,7 @@ for telefon in data:
     marki.append(telefon['Marka telefonu'])
     modele.append(telefon['Model telefonu'])
     cechy.append(' '.join(
-        [str(telefon['Marka telefonu']), str(telefon['Rodzaj wyświetlacza']), str(telefon['Rozdzielczość ekranu (px)']),
+        [str(telefon['Marka telefonu']), str(telefon['Cena']), str(telefon['Rodzaj wyświetlacza']), str(telefon['Rozdzielczość ekranu (px)']),
          str(telefon['Rozdzielczość aparatu tylnego']), str(telefon['Pojemność akumulatora']),
          str(telefon['Pamięć RAM']),
          str(telefon['Wbudowana pamięć']), str(telefon['Waga']), str(telefon['Wysokość']),
@@ -105,7 +106,8 @@ def evaluate_recommendation(original_phone, recommended_phones):
         'Szerokość': original_phone['Szerokość'],
         'Częstotliwość procesora': original_phone['Częstotliwość procesora'],
         'Rozdzielczość aparatu przedniego': original_phone['Rozdzielczość aparatu przedniego'],
-        'Gęstość pikseli': original_phone['Gęstość pikseli']
+        'Gęstość pikseli': original_phone['Gęstość pikseli'],
+        'Cena': original_phone['Cena']
     }
 
     # Ocena jakości rekomendacji dla każdego zarekomendowanego telefonu
@@ -127,7 +129,8 @@ def evaluate_recommendation(original_phone, recommended_phones):
             'Szerokość': recommended_phone['Szerokość'],
             'Częstotliwość procesora': recommended_phone['Częstotliwość procesora'],
             'Rozdzielczość aparatu przedniego': recommended_phone['Rozdzielczość aparatu przedniego'],
-            'Gęstość pikseli': recommended_phone['Gęstość pikseli']
+            'Gęstość pikseli': recommended_phone['Gęstość pikseli'],
+            'Cena': recommended_phone['Cena']
         }
 
         # Liczba wspólnych parametrów między oryginalnym a zarekomendowanym telefonem

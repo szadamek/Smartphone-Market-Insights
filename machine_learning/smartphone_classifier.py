@@ -1,4 +1,6 @@
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 import json
@@ -9,10 +11,10 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
 # Wczytanie danych z pliku
-with open('../web_scraping/phones_data.json', 'r', encoding='utf-8') as file:
+with open('../web_scraping/phones_data_connected.json', 'r', encoding='utf-8') as file:
     data = json.load(file)
 
-# z parametrów takich jak 'szerokość', 'wysokość', 'głębokość', 'waga', 'przekątna ekranu', 'rozdzielczość ekranu', 'częstotliwość procesora', 'pojemność akumulatora' wyciagnij liczbę
+# Usuń telefony, które nie mają podanych parametrów
 for phone in data:
     for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']:
         # uwzględnij sytuację, gdy nie istnieje taki parametr dla tego telefonu
@@ -24,73 +26,69 @@ for phone in data:
 
 # usuń telefony, które nie mają w ogóle parametru marka telefonu
 data = [phone for phone in data if 'Marka telefonu' in phone]
+# usuń telefony, które nie mają w ogóle parametru model telefonu
+data = [phone for phone in data if 'Model telefonu' in phone]
 
 # Przygotowanie danych treningowych
 X = []
 y = []
 # weź tylko te telefony które mają wszystkie parametry kompletne włącznie z marką telefonu
 for phone in data:
-    if all([phone[param] is not None for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']]):
+    if all([phone[param] is not None for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora', 'Marka telefonu', 'Model telefonu']]):
         X.append([phone[param] for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']])
-        y.append(phone['Marka telefonu'])
-
-# Zakodowanie etykiet kategorii
-label_encoder = LabelEncoder()
-y = label_encoder.fit_transform(y)
+        y.append(phone['Marka telefonu'] + ' ' + phone['Model telefonu'])
 
 # Podział danych na zbiór treningowy i testowy
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Definicja modelu KNN
-knn = KNeighborsClassifier()
+# Definicja modelu Drzewa decyzyjnego
+decision_tree = DecisionTreeClassifier()
+
+# Definicja modelu Gradient Boosting
+gradient_boosting = GradientBoostingClassifier()
 
 # Definicja przestrzeni poszukiwania
 param_space = {
-    'n_neighbors': (1, 10)  # zakres możliwych wartości liczby sąsiadów
+    'max_depth': (1, 10),  # zakres możliwych wartości maksymalnej głębokości dla drzewa decyzyjnego
+    'learning_rate': (0.001, 1.0, 'log-uniform')  # zakres możliwych wartości współczynnika uczenia dla Gradient Boosting
 }
 
-# Inicjalizacja optymalizacji bayesowskiej
-opt = BayesSearchCV(knn, param_space, n_iter=50, cv=5)
+# Definicja obiektu BayesSearchCV
+opt = BayesSearchCV(
+    gradient_boosting,  # model do strojenia
+    param_space,  # przestrzeń poszukiwania
+    n_iter=50,  # liczba iteracji
+    random_state=42
+)
 
-# Dopasowanie modelu do danych treningowych
+# Strojenie hiperparametrów
 opt.fit(X_train, y_train)
 
 # Najlepsze znalezione parametry
 best_params = opt.best_params_
 print("Najlepsze parametry:", best_params)
 
-# Predykcja dla danych testowych z wykorzystaniem najlepszych parametrów
-y_pred = opt.predict(X_test)
+# Dostosowanie modelu z najlepszymi parametrami
+gradient_boosting_best = GradientBoostingClassifier(**best_params)
 
-# Dekodowanie etykiet kategorii
-y_pred = label_encoder.inverse_transform(y_pred)
+# Trenowanie modelu Gradient Boosting z najlepszymi parametrami
+gradient_boosting_best.fit(X_train, y_train)
 
-# Wyświetlenie wyników predykcji
-for i in range(len(X_test)):
-    print('Dane wejściowe:', X_test[i])
-    print('Oczekiwana marka telefonu:', label_encoder.inverse_transform([y_test[i]]))
-    print('Przewidziana marka telefonu:', y_pred[i])
-    print()
+# Predykcja na zbiorze testowym
+y_pred_gb = gradient_boosting_best.predict(X_test)
 
-# Ocena dokładności modelu
-accuracy = opt.score(X_test, y_test)
-print('Dokładność modelu:', accuracy)
+# Ewaluacja modelu Gradient Boosting
+cm_gb = confusion_matrix(y_test, y_pred_gb)
+print("Macierz pomyłek (Gradient Boosting):")
+print(cm_gb)
 
-# stwórz macierz pomyłek
-cm = confusion_matrix(y_test, opt.predict(X_test))
+# Trenowanie modelu Drzewa decyzyjnego
+decision_tree.fit(X_train, y_train)
 
-# wyświetl macierz pomyłek w konsoli
-print(cm)
+# Predykcja na zbiorze testowym
+y_pred_dt = decision_tree.predict(X_test)
 
-#zsumuj wszystkie wartości w macierzy pomyłek
-sum = np.sum(cm)
-print(sum)
-
-# wyświetl macierz pomyłek w postaci graficznej
-plt.figure(figsize=(12, 12))
-sns.heatmap(cm, annot=True, fmt=".0f", linewidths=.5, square=True, cmap='Blues_r')
-plt.ylabel('Actual label')
-plt.xlabel('Predicted label')
-all_sample_title = 'Accuracy Score: {0}'.format(accuracy)
-plt.title(all_sample_title, size=15)
-plt.show()
+# Ewaluacja modelu Drzewa decyzyjnego
+cm_dt = confusion_matrix(y_test, y_pred_dt)
+print("Macierz pomyłek (Drzewo decyzyjne):")
+print(cm_dt)
