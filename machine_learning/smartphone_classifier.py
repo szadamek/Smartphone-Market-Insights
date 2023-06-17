@@ -1,14 +1,14 @@
-from sklearn.neighbors import KNeighborsClassifier
+import joblib
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 import json
-from skopt import BayesSearchCV
+from sklearn.metrics import confusion_matrix, accuracy_score
+import time
 import matplotlib.pyplot as plt
-import numpy as np
 import seaborn as sns
-from sklearn.metrics import confusion_matrix
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier
+
 
 # Wczytanie danych z pliku
 with open('../web_scraping/phones_data_connected.json', 'r', encoding='utf-8') as file:
@@ -17,9 +17,7 @@ with open('../web_scraping/phones_data_connected.json', 'r', encoding='utf-8') a
 # Usuń telefony, które nie mają podanych parametrów
 for phone in data:
     for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']:
-        # uwzględnij sytuację, gdy nie istnieje taki parametr dla tego telefonu
         try:
-            # usuń wszystkie znaki nie będące cyframi
             phone[param] = float(''.join([char for char in phone[param] if char.isdigit() or char == '.']))
         except:
             phone[param] = None
@@ -32,11 +30,12 @@ data = [phone for phone in data if 'Model telefonu' in phone]
 # Przygotowanie danych treningowych
 X = []
 y = []
-# weź tylko te telefony które mają wszystkie parametry kompletne włącznie z marką telefonu
 for phone in data:
     if all([phone[param] is not None for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora', 'Marka telefonu', 'Model telefonu']]):
         X.append([phone[param] for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']])
-        y.append(phone['Marka telefonu'] + ' ' + phone['Model telefonu'])
+        # predykuj markę i model telefonu
+        y.append(phone['Marka telefonu'])
+
 
 # Podział danych na zbiór treningowy i testowy
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -44,51 +43,124 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # Definicja modelu Drzewa decyzyjnego
 decision_tree = DecisionTreeClassifier()
 
-# Definicja modelu Gradient Boosting
-gradient_boosting = GradientBoostingClassifier()
+# Definicja modelu Random Forest
+random_forest = RandomForestClassifier()
 
-# Definicja przestrzeni poszukiwania
-param_space = {
-    'max_depth': (1, 10),  # zakres możliwych wartości maksymalnej głębokości dla drzewa decyzyjnego
-    'learning_rate': (0.001, 1.0, 'log-uniform')  # zakres możliwych wartości współczynnika uczenia dla Gradient Boosting
-}
+# Definicja modelu KNN
+knn = KNeighborsClassifier(n_neighbors=1)
 
-# Definicja obiektu BayesSearchCV
-opt = BayesSearchCV(
-    gradient_boosting,  # model do strojenia
-    param_space,  # przestrzeń poszukiwania
-    n_iter=50,  # liczba iteracji
-    random_state=42
-)
+# ----------------------------------------------------------------------------------------------------------------------
 
-# Strojenie hiperparametrów
-opt.fit(X_train, y_train)
+# Sprawdzenie, czy istnieje zapisany model KNN
+try:
+    # Wczytanie wcześniej zapisanego modelu KNN
+    knn = joblib.load("knn_model.pkl")
+    print("Wczytano zapisany model KNN")
+except FileNotFoundError:
+    # Trenowanie modelu KNN
+    start_time = time.time()
+    knn.fit(X_train, y_train)
+    end_time = time.time()
+    print("Czas trenowania KNN:", end_time - start_time, "sekundy")
 
-# Najlepsze znalezione parametry
-best_params = opt.best_params_
-print("Najlepsze parametry:", best_params)
-
-# Dostosowanie modelu z najlepszymi parametrami
-gradient_boosting_best = GradientBoostingClassifier(**best_params)
-
-# Trenowanie modelu Gradient Boosting z najlepszymi parametrami
-gradient_boosting_best.fit(X_train, y_train)
+    # Zapisanie wytrenowanego modelu
+    joblib.dump(knn, "knn_model.pkl")
+    print("Zapisano wytrenowany model KNN")
 
 # Predykcja na zbiorze testowym
-y_pred_gb = gradient_boosting_best.predict(X_test)
+y_pred_knn = knn.predict(X_test)
 
-# Ewaluacja modelu Gradient Boosting
-cm_gb = confusion_matrix(y_test, y_pred_gb)
-print("Macierz pomyłek (Gradient Boosting):")
-print(cm_gb)
+# Stwórz macierz pomyłek ale dla marki telefonu
+cm_knn = confusion_matrix(y_test, y_pred_knn)
+print("Macierz pomyłek (KNN):")
+print(cm_knn)
 
-# Trenowanie modelu Drzewa decyzyjnego
-decision_tree.fit(X_train, y_train)
+# Wizualizacja macierzy pomyłek
+plt.figure(figsize=(10, 8))
+sns.heatmap(cm_knn, annot=True, fmt='d', cmap='Blues')
+plt.title('Macierz pomyłek (KNN)')
+plt.xlabel('Przewidziane etykiety')
+plt.ylabel('Rzeczywiste etykiety')
+plt.show()
+
+# wskaźnik jakości modelu
+accuracy_knn = accuracy_score(y_test, y_pred_knn)
+print("Dokładność (KNN):", accuracy_knn)
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+# Sprawdzenie, czy istnieje zapisany model Random Forest
+try:
+    # Wczytanie wcześniej zapisanego modelu Random Forest
+    random_forest = joblib.load("random_forest_model.pkl")
+    print("Wczytano zapisany model Random Forest")
+except FileNotFoundError:
+    # Trenowanie modelu Random Forest
+    start_time = time.time()
+    random_forest.fit(X_train, y_train)
+    end_time = time.time()
+    print("Czas trenowania Random Forest:", end_time - start_time, "sekundy")
+
+    # Zapisanie wytrenowanego modelu
+    joblib.dump(random_forest, "random_forest_model.pkl")
+    print("Zapisano wytrenowany model Random Forest")
+
+# Predykcja na zbiorze testowym
+y_pred_rf = random_forest.predict(X_test)
+
+# Stwórz macierz pomyłek ale dla marki telefonu
+cm_rf = confusion_matrix(y_test, y_pred_rf)
+print("Macierz pomyłek (Random Forest):")
+print(cm_rf)
+
+# Wizualizacja macierzy pomyłek
+plt.figure(figsize=(10, 8))
+sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Blues')
+plt.title('Macierz pomyłek (Random Forest)')
+plt.xlabel('Przewidziane etykiety')
+plt.ylabel('Rzeczywiste etykiety')
+plt.show()
+
+# wskaźnik jakości modelu
+accuracy_rf = accuracy_score(y_test, y_pred_rf)
+print("Dokładność (Random Forest):", accuracy_rf)
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+# Sprawdzenie, czy istnieje zapisany model Drzewa decyzyjnego
+try:
+    # Wczytanie wcześniej zapisanego modelu Drzewa decyzyjnego
+    decision_tree = joblib.load("decision_tree_model.pkl")
+    print("Wczytano zapisany model Drzewo decyzyjne")
+except FileNotFoundError:
+    # Trenowanie modelu Drzewa decyzyjnego
+    start_time = time.time()
+    decision_tree.fit(X_train, y_train)
+    end_time = time.time()
+    print("Czas trenowania Drzewo decyzyjne:", end_time - start_time, "sekundy")
+
+    # Zapisanie wytrenowanego modelu
+    joblib.dump(decision_tree, "decision_tree_model.pkl")
+    print("Zapisano wytrenowany model Drzewo decyzyjne")
 
 # Predykcja na zbiorze testowym
 y_pred_dt = decision_tree.predict(X_test)
 
-# Ewaluacja modelu Drzewa decyzyjnego
+# Stwórz macierz pomyłek ale dla marki telefonu
 cm_dt = confusion_matrix(y_test, y_pred_dt)
 print("Macierz pomyłek (Drzewo decyzyjne):")
 print(cm_dt)
+
+# Wizualizacja macierzy pomyłek
+plt.figure(figsize=(10, 8))
+sns.heatmap(cm_dt, annot=True, fmt='d', cmap='Blues')
+plt.title('Macierz pomyłek (Drzewo decyzyjne)')
+plt.xlabel('Przewidziane etykiety')
+plt.ylabel('Rzeczywiste etykiety')
+plt.show()
+
+# wskaźnik jakości modelu
+accuracy_dt = accuracy_score(y_test, y_pred_dt)
+print("Dokładność (Drzewo decyzyjne):", accuracy_dt)
+
+# ----------------------------------------------------------------------------------------------------------------------

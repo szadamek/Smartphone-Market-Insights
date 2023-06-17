@@ -160,11 +160,11 @@ if __name__ == '__main__':
 
         # Save data to JSON file, appending new data
         # jezeli plik jest pusty
-        if os.stat('phones_data_new.json').st_size == 0:
+        if os.stat('phones_data_connected.json').st_size == 0:
             with open('phones_data_new.json', 'a', encoding='utf-8') as f:
                 json.dump([params], f, ensure_ascii=False)
         else:
-            with open('phones_data_new.json', 'r+', encoding='utf-8') as f:
+            with open('phones_data_connected.json', 'r+', encoding='utf-8') as f:
                 # Load data from JSON file
                 data = json.load(f)
                 # Append new data to JSON file

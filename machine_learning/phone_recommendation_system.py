@@ -1,6 +1,8 @@
 import json
 import random
-from sklearn.feature_extraction.text import CountVectorizer
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from data_processing.data_processing_file import remove_units, remove_phones_without_param
 
@@ -10,7 +12,6 @@ with open('../web_scraping/phones_data_connected.json', 'r', encoding='utf-8') a
 
 # Usuń telefony, które nie mają podanych parametrów
 data = remove_phones_without_param(data, 'Rodzaj wyświetlacza')
-data = remove_phones_without_param(data, 'Rozdzielczość ekranu (px)')
 data = remove_phones_without_param(data, 'Rozdzielczość aparatu tylnego')
 data = remove_phones_without_param(data, 'Pojemność akumulatora')
 data = remove_phones_without_param(data, 'Pamięć RAM')
@@ -26,138 +27,81 @@ data = remove_phones_without_param(data, 'Gęstość pikseli')
 data = remove_phones_without_param(data, 'Cena')
 print(f"Liczba telefonów po usunięciu tych bez podanych parametrów: {len(data)}")
 
+# Usuń parametry które są inne niż te powyżej
+required_keys = ['Rodzaj wyświetlacza', 'Rozdzielczość aparatu tylnego', 'Pojemność akumulatora', 'Pamięć RAM',
+                 'Wbudowana pamięć', 'Waga', 'Wysokość', 'Szerokość', 'Marka telefonu', 'Model telefonu', 'Częstotliwość procesora',
+                 'Rozdzielczość aparatu przedniego', 'Gęstość pikseli', 'Cena']
+data = [{key: phone[key] for key in required_keys} for phone in data]
+
 # Usuń jednostki z parametrów liczbowych
 data = remove_units(data, ['Rozdzielczość aparatu tylnego', 'Pojemność akumulatora', 'Pamięć RAM', 'Wbudowana pamięć', 'Waga', 'Wysokość',
-                           'Częstotliwość procesora', 'Rozdzielczość ekranu (px)', 'Rozdzielczość aparatu przedniego', 'Szerokość',
+                           'Częstotliwość procesora', 'Rozdzielczość aparatu przedniego', 'Szerokość',
                            'Gęstość pikseli'])
 
-# Wylosuj 5 ofert ostatnich zakupów telefonów marki Samsung
-recent_purchases = random.sample([phone for phone in data if phone['Marka telefonu'] == 'Samsung'], 5)
-print("Ostatnie zakupy:")
-for zakup in recent_purchases:
-    print(f"- {zakup['Marka telefonu']} {zakup['Model telefonu']}")
-print()
+# Weź tylko popularne marki telefonów
+popular_brands = ['Samsung', 'Apple', 'Huawei', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'OnePlus', 'Motorola', 'Lenovo', 'LG', 'Sony', 'Nokia', 'HTC', 'Google']
+data = [phone for phone in data if phone['Marka telefonu'] in popular_brands]
+print(f"Liczba telefonów po usunięciu tych z niepopularnych marek: {len(data)}")
 
-# Przygotuj listy cech telefonów
-marki = []
-modele = []
-cechy = []
+# Wylosowanie 3 telefonów
+random.seed(42)
+selected_phones = random.sample(data, 3)
 
-for telefon in data:
-    marki.append(telefon['Marka telefonu'])
-    modele.append(telefon['Model telefonu'])
-    cechy.append(' '.join(
-        [str(telefon['Marka telefonu']), str(telefon['Cena']), str(telefon['Rodzaj wyświetlacza']), str(telefon['Rozdzielczość ekranu (px)']),
-         str(telefon['Rozdzielczość aparatu tylnego']), str(telefon['Pojemność akumulatora']),
-         str(telefon['Pamięć RAM']),
-         str(telefon['Wbudowana pamięć']), str(telefon['Waga']), str(telefon['Wysokość']),
-         str(telefon['Częstotliwość procesora']), str(telefon['Marka telefonu']), str(telefon['Rozdzielczość aparatu przedniego']),
-         str(telefon['Szerokość']), str(telefon['Gęstość pikseli'])]))  # Dodaj cechy telefonu do listy cechy
+# Przygotuj dane do trenowania modelu
+descriptions = [
+    ' '.join([str(phone[key]) for key in required_keys]) for phone in data
+]
 
-    modele.append(telefon['Marka telefonu'] + ' ' + telefon['Model telefonu'])  # Dodaj markę i model do listy modele
+# Przygotowanie wektoryzera TF-IDF
+vectorizer = TfidfVectorizer()
+vectors = vectorizer.fit_transform(descriptions)
 
-# Utwórz macierz cech telefonów
-vectorizer = CountVectorizer().fit_transform(cechy)
-cechy_matrix = vectorizer.toarray()
+# Przygotowanie wektora średniego dla wylosowanych telefonów
+selected_vectors = vectorizer.transform([
+    ' '.join([str(phone[key]) for key in required_keys]) for phone in selected_phones
+])
+average_vector = np.asarray(selected_vectors.mean(axis=0))
 
-# Oblicz podobieństwo kosinusowe między cechami telefonów
-similarities = cosine_similarity(cechy_matrix)
+# Obliczenie podobieństwa kosinusowego między średnim wektorem a innymi telefonami
+similarities = cosine_similarity(average_vector, vectors)
 
-# Funkcja do zwracania rekomendacji
-def recommend(telefon, n=3):
-    index = modele.index(telefon['Model telefonu'])
-    similarity_scores = list(enumerate(similarities[index]))
-    similarity_scores = sorted(similarity_scores, key=lambda x: x[1], reverse=True)
-    top_scores = similarity_scores[1:n+1]
-    recommended_indices = [score[0] for score in top_scores]
+# Znalezienie najbardziej podobnego telefonu do średniego wektora, który jest innego modelu niż wylosowane telefony
+most_similar_phone_index = similarities.argmax()
+most_similar_phone = data[most_similar_phone_index]
 
-    # Wybierz różne modele telefonów jako rekomendacje
-    recommended_telefony = []
-    added_models = set()
-    for i in recommended_indices:
-        if data[i]['Model telefonu'] not in added_models and data[i]['Model telefonu'] != telefon['Model telefonu']:
-            recommended_telefony.append(data[i])
-            added_models.add(data[i]['Model telefonu'])
-            if len(recommended_telefony) == n:
-                break
+while most_similar_phone['Model telefonu'] in [phone['Model telefonu'] for phone in selected_phones]:
+    similarities[0, most_similar_phone_index] = 0  # Ustawienie podobieństwa do już wylosowanych telefonów na 0
+    most_similar_phone_index = similarities.argmax()
+    most_similar_phone = data[most_similar_phone_index]
 
-    # Jeśli nie ma żadnych rekomendacji, dodaj losowe telefony
-    if len(recommended_telefony) == 0:
-        random_telefony = random.sample(data, n)
-        recommended_telefony.extend(random_telefony)
+# Wyświetlenie wyników
+print('Wylosowane telefony:')
+for phone in selected_phones:
+    print(phone)
+print('Najbardziej podobny telefon (inny model):')
+print(most_similar_phone)
 
-    return recommended_telefony
+# Wykres podobieństwa kosinusowego
+plt.figure(figsize=(12, 6))
 
+# Posortuj telefony malejąco według wartości podobieństwa kosinusowego
+sorted_indices = np.argsort(similarities[0])[::-1]
+sorted_similarities = similarities[0, sorted_indices]
+sorted_phones = [data[i]['Model telefonu'] for i in sorted_indices]
 
-def evaluate_recommendation(original_phone, recommended_phones):
-    original_brand = original_phone['Marka telefonu']
-    original_model = original_phone['Model telefonu']
+# Indeks telefonu rekomendowanego
+recommended_index = sorted_phones.index(most_similar_phone['Model telefonu'])
 
-    # Pobierz parametry oryginalnego telefonu
-    original_params = {
-        'Rodzaj wyświetlacza': original_phone['Rodzaj wyświetlacza'],
-        'Rozdzielczość ekranu (px)': original_phone['Rozdzielczość ekranu (px)'],
-        'Rozdzielczość aparatu tylnego': original_phone['Rozdzielczość aparatu tylnego'],
-        'Pojemność akumulatora': original_phone['Pojemność akumulatora'],
-        'Pamięć RAM': original_phone['Pamięć RAM'],
-        'Wbudowana pamięć': original_phone['Wbudowana pamięć'],
-        'Waga': original_phone['Waga'],
-        'Wysokość': original_phone['Wysokość'],
-        'Szerokość': original_phone['Szerokość'],
-        'Częstotliwość procesora': original_phone['Częstotliwość procesora'],
-        'Rozdzielczość aparatu przedniego': original_phone['Rozdzielczość aparatu przedniego'],
-        'Gęstość pikseli': original_phone['Gęstość pikseli'],
-        'Cena': original_phone['Cena']
-    }
+# Wybierz 10 losowych telefonów spośród pozostałych
+random_indices = random.sample(range(1, len(sorted_phones)), 10)
+phones_to_display = [sorted_phones[i] for i in random_indices]
+indices_to_display = [i for i in random_indices] + [recommended_index]
+phones_to_display.append(sorted_phones[recommended_index])
 
-    # Ocena jakości rekomendacji dla każdego zarekomendowanego telefonu
-    scores = []
-    for recommended_phone in recommended_phones:
-        recommended_brand = recommended_phone['Marka telefonu']
-        recommended_model = recommended_phone['Model telefonu']
-
-        # Pobierz parametry zarekomendowanego telefonu
-        recommended_params = {
-            'Rodzaj wyświetlacza': recommended_phone['Rodzaj wyświetlacza'],
-            'Rozdzielczość ekranu (px)': recommended_phone['Rozdzielczość ekranu (px)'],
-            'Rozdzielczość aparatu tylnego': recommended_phone['Rozdzielczość aparatu tylnego'],
-            'Pojemność akumulatora': recommended_phone['Pojemność akumulatora'],
-            'Pamięć RAM': recommended_phone['Pamięć RAM'],
-            'Wbudowana pamięć': recommended_phone['Wbudowana pamięć'],
-            'Waga': recommended_phone['Waga'],
-            'Wysokość': recommended_phone['Wysokość'],
-            'Szerokość': recommended_phone['Szerokość'],
-            'Częstotliwość procesora': recommended_phone['Częstotliwość procesora'],
-            'Rozdzielczość aparatu przedniego': recommended_phone['Rozdzielczość aparatu przedniego'],
-            'Gęstość pikseli': recommended_phone['Gęstość pikseli'],
-            'Cena': recommended_phone['Cena']
-        }
-
-        # Liczba wspólnych parametrów między oryginalnym a zarekomendowanym telefonem
-        common_params = sum(1 for param in original_params if original_params[param] == recommended_params[param])
-
-        # Ocena jakości rekomendacji
-        score = common_params / len(original_params)
-        scores.append(score)
-
-        print(f"Ocena rekomendacji dla telefonu {recommended_brand} {recommended_model}: {score}")
-
-    # Średnia ocen jakości rekomendacji
-    average_score = sum(scores) / len(scores)
-
-    print(f"Średnia ocena jakości rekomendacji: {average_score}")
-    return average_score
-
-
-# Przykładowe użycie oceny jakości rekomendacji
-for zakup in recent_purchases:
-    rekomendacje = recommend(zakup, n=3)
-    print(f"Rekomendacje dla telefonu {zakup['Marka telefonu']} {zakup['Model telefonu']}:")
-    print("Parametry oferty wylosowanej:")
-    print(zakup)
-    print("Parametry zarekomendowanej oferty:")
-    for telefon in rekomendacje:
-        print(telefon)
-    evaluate_recommendation(zakup, rekomendacje)
-    print()
-
+plt.bar(range(len(sorted_similarities)), sorted_similarities, color='b')
+plt.xlabel('Model telefonu')
+plt.ylabel('Podobieństwo kosinusowe')
+plt.title('Podobieństwo kosinusowe między średnim wektorem a telefonami (posortowane malejąco)')
+plt.xticks(indices_to_display, phones_to_display, rotation=45, ha='right')
+plt.tight_layout()
+plt.show()
