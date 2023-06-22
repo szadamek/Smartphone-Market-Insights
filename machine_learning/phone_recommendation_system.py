@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from data_processing.data_processing_file import remove_units, remove_phones_without_param
+from sklearn.preprocessing import StandardScaler
 
 # Wczytaj dane z pliku JSON
 with open('../web_scraping/phones_data_connected.json', 'r', encoding='utf-8') as file:
@@ -29,17 +30,21 @@ print(f"Liczba telefonów po usunięciu tych bez podanych parametrów: {len(data
 
 # Usuń parametry które są inne niż te powyżej
 required_keys = ['Rodzaj wyświetlacza', 'Rozdzielczość aparatu tylnego', 'Pojemność akumulatora', 'Pamięć RAM',
-                 'Wbudowana pamięć', 'Waga', 'Wysokość', 'Szerokość', 'Marka telefonu', 'Model telefonu', 'Częstotliwość procesora',
+                 'Wbudowana pamięć', 'Waga', 'Wysokość', 'Szerokość', 'Marka telefonu', 'Model telefonu',
+                 'Częstotliwość procesora',
                  'Rozdzielczość aparatu przedniego', 'Gęstość pikseli', 'Cena']
 data = [{key: phone[key] for key in required_keys} for phone in data]
 
 # Usuń jednostki z parametrów liczbowych
-data = remove_units(data, ['Rozdzielczość aparatu tylnego', 'Pojemność akumulatora', 'Pamięć RAM', 'Wbudowana pamięć', 'Waga', 'Wysokość',
-                           'Częstotliwość procesora', 'Rozdzielczość aparatu przedniego', 'Szerokość',
-                           'Gęstość pikseli'])
+data = remove_units(data,
+                    ['Rozdzielczość aparatu tylnego', 'Pojemność akumulatora', 'Pamięć RAM', 'Wbudowana pamięć', 'Waga',
+                     'Wysokość',
+                     'Częstotliwość procesora', 'Rozdzielczość aparatu przedniego', 'Szerokość',
+                     'Gęstość pikseli'])
 
 # Weź tylko popularne marki telefonów
-popular_brands = ['Samsung', 'Apple', 'Huawei', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'OnePlus', 'Motorola', 'Lenovo', 'LG', 'Sony', 'Nokia', 'HTC', 'Google']
+popular_brands = ['Samsung', 'Apple', 'Huawei', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'OnePlus', 'Motorola', 'Lenovo',
+                  'LG', 'Sony', 'Nokia', 'HTC', 'Google']
 data = [phone for phone in data if phone['Marka telefonu'] in popular_brands]
 print(f"Liczba telefonów po usunięciu tych z niepopularnych marek: {len(data)}")
 
@@ -65,9 +70,11 @@ average_vector = np.asarray(selected_vectors.mean(axis=0))
 # Obliczenie podobieństwa kosinusowego między średnim wektorem a innymi telefonami
 similarities = cosine_similarity(average_vector, vectors)
 
+
 # Znalezienie najbardziej podobnego telefonu do średniego wektora, który jest innego modelu niż wylosowane telefony
 most_similar_phone_index = similarities.argmax()
 most_similar_phone = data[most_similar_phone_index]
+
 
 while most_similar_phone['Model telefonu'] in [phone['Model telefonu'] for phone in selected_phones]:
     similarities[0, most_similar_phone_index] = 0  # Ustawienie podobieństwa do już wylosowanych telefonów na 0
@@ -78,7 +85,7 @@ while most_similar_phone['Model telefonu'] in [phone['Model telefonu'] for phone
 print('Wylosowane telefony:')
 for phone in selected_phones:
     print(phone)
-print('Najbardziej podobny telefon (inny model):')
+print('Najbardziej podobny telefon:')
 print(most_similar_phone)
 
 # Wykres podobieństwa kosinusowego
@@ -92,8 +99,12 @@ sorted_phones = [data[i]['Model telefonu'] for i in sorted_indices]
 # Indeks telefonu rekomendowanego
 recommended_index = sorted_phones.index(most_similar_phone['Model telefonu'])
 
-# Wybierz 10 losowych telefonów spośród pozostałych
-random_indices = random.sample(range(1, len(sorted_phones)), 10)
+# Wybierz 10 losowych telefonów różnych marek do wyświetlenia na wykresie
+random.seed(73)
+random_indices = random.sample(range(10, len(sorted_phones)), 10)
+while recommended_index in random_indices:
+    random_indices = random.sample(range(10, len(sorted_phones)), 10)
+
 phones_to_display = [sorted_phones[i] for i in random_indices]
 indices_to_display = [i for i in random_indices] + [recommended_index]
 phones_to_display.append(sorted_phones[recommended_index])

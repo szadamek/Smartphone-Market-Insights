@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
-
+import numpy as np
 
 # Wczytanie danych z pliku
 with open('../web_scraping/phones_data_connected.json', 'r', encoding='utf-8') as file:
@@ -30,15 +30,20 @@ data = [phone for phone in data if 'Model telefonu' in phone]
 # Przygotowanie danych treningowych
 X = []
 y = []
+phone_names = []
 for phone in data:
-    if all([phone[param] is not None for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora', 'Marka telefonu', 'Model telefonu']]):
-        X.append([phone[param] for param in ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']])
+    if all([phone[param] is not None for param in
+            ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora',
+             'Marka telefonu', 'Model telefonu']]):
+        X.append([phone[param] for param in
+                  ['Szerokość', 'Wysokość', 'Głębokość', 'Waga', 'Częstotliwość procesora', 'Pojemność akumulatora']])
         # predykuj markę i model telefonu
         y.append(phone['Marka telefonu'])
-
+        phone_names.append(f"{phone['Marka telefonu']} {phone['Model telefonu']}")
 
 # Podział danych na zbiór treningowy i testowy
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test, phone_names_train, phone_names_test = train_test_split(X, y, phone_names,
+                                                                                         test_size=0.2, random_state=42)
 
 # Definicja modelu Drzewa decyzyjnego
 decision_tree = DecisionTreeClassifier()
@@ -75,12 +80,28 @@ cm_knn = confusion_matrix(y_test, y_pred_knn)
 print("Macierz pomyłek (KNN):")
 print(cm_knn)
 
-# Wizualizacja macierzy pomyłek
+# Utworzenie listy unikalnych etykiet
+unique_labels = sorted(set(y_test))
+
+cm_knn = np.delete(cm_knn, -14, axis=1)
+
+# usuń ostatni wiersz z macierzy pomyłek
+cm_knn = np.delete(cm_knn, -14, axis=0)
+
+# Wizualizacja macierzy pomyłek z uwzględnieniem brakujących etykiet
 plt.figure(figsize=(10, 8))
 sns.heatmap(cm_knn, annot=True, fmt='d', cmap='Blues')
+
+# Dodanie nazw marek telefonów na wykres
+tick_marks = [i + 0.5 for i in range(len(unique_labels))]
+unique_labels = [label.replace(' ', '\n') for label in unique_labels]
+plt.xticks(tick_marks, unique_labels, rotation=90, fontsize=8, ha='right')
+plt.yticks(tick_marks, unique_labels, rotation=0, fontsize=8)
+
 plt.title('Macierz pomyłek (KNN)')
 plt.xlabel('Przewidziane etykiety')
 plt.ylabel('Rzeczywiste etykiety')
+
 plt.show()
 
 # wskaźnik jakości modelu
@@ -113,12 +134,28 @@ cm_rf = confusion_matrix(y_test, y_pred_rf)
 print("Macierz pomyłek (Random Forest):")
 print(cm_rf)
 
-# Wizualizacja macierzy pomyłek
+# Utworzenie listy unikalnych etykiet
+unique_labels = sorted(set(y_test))
+
+# cm_rf = np.delete(cm_rf, -14, axis=1)
+#
+# # usuń ostatni wiersz z macierzy pomyłek
+# cm_rf = np.delete(cm_rf, -14, axis=0)
+
+# Wizualizacja macierzy pomyłek z uwzględnieniem brakujących etykiet
 plt.figure(figsize=(10, 8))
 sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Blues')
+
+# Dodanie nazw marek telefonów na wykres
+tick_marks = [i + 0.5 for i in range(len(unique_labels))]
+unique_labels = [label.replace(' ', '\n') for label in unique_labels]
+plt.xticks(tick_marks, unique_labels, rotation=90, fontsize=8, ha='right')
+plt.yticks(tick_marks, unique_labels, rotation=0, fontsize=8)
+
 plt.title('Macierz pomyłek (Random Forest)')
 plt.xlabel('Przewidziane etykiety')
 plt.ylabel('Rzeczywiste etykiety')
+
 plt.show()
 
 # wskaźnik jakości modelu
@@ -151,16 +188,32 @@ cm_dt = confusion_matrix(y_test, y_pred_dt)
 print("Macierz pomyłek (Drzewo decyzyjne):")
 print(cm_dt)
 
-# Wizualizacja macierzy pomyłek
+# Utworzenie listy unikalnych etykiet
+unique_labels = sorted(set(y_test))
+
+cm_dt = np.delete(cm_dt, -14, axis=1)
+cm_dt = np.delete(cm_dt, -12, axis=1)
+
+# usuń ostatni wiersz z macierzy pomyłek
+cm_dt = np.delete(cm_dt, -14, axis=0)
+cm_dt = np.delete(cm_dt, -12, axis=0)
+
+# Wizualizacja macierzy pomyłek z uwzględnieniem brakujących etykiet
 plt.figure(figsize=(10, 8))
 sns.heatmap(cm_dt, annot=True, fmt='d', cmap='Blues')
+
+# Dodanie nazw marek telefonów na wykres
+tick_marks = [i + 0.5 for i in range(len(unique_labels))]
+unique_labels = [label.replace(' ', '\n') for label in unique_labels]
+plt.xticks(tick_marks, unique_labels, rotation=90, fontsize=8, ha='right')
+plt.yticks(tick_marks, unique_labels, rotation=0, fontsize=8)
+
 plt.title('Macierz pomyłek (Drzewo decyzyjne)')
 plt.xlabel('Przewidziane etykiety')
 plt.ylabel('Rzeczywiste etykiety')
+
 plt.show()
 
 # wskaźnik jakości modelu
 accuracy_dt = accuracy_score(y_test, y_pred_dt)
 print("Dokładność (Drzewo decyzyjne):", accuracy_dt)
-
-# ----------------------------------------------------------------------------------------------------------------------
